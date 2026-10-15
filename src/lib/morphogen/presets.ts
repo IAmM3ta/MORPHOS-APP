@@ -102,17 +102,17 @@ export const PALETTES: Palette[] = [
 ];
 
 export const PRESETS: SimPreset[] = [
-  { id: "living", name: "Living", blurb: "Fine mazes. The phone tunes them.", feed: 0.037, kill: 0.06, du: 0.14, dv: 0.07, paletteId: "abyss" },
-  { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.21, dv: 0.105, paletteId: "spore" },
-  { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.18, dv: 0.09, paletteId: "spore" },
-  { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.21, dv: 0.105, paletteId: "abyss" },
-  { id: "mazes", name: "Mazes", blurb: "Labyrinth walls", feed: 0.029, kill: 0.057, du: 0.21, dv: 0.105, paletteId: "porcelain" },
-  { id: "fingerprint", name: "Fingerprint", blurb: "Ridge fields", feed: 0.026, kill: 0.061, du: 0.21, dv: 0.105, paletteId: "porcelain" },
-  { id: "spirals", name: "Spirals", blurb: "Rotating arms", feed: 0.018, kill: 0.051, du: 0.21, dv: 0.105, paletteId: "ember" },
-  { id: "worms", name: "Worms", blurb: "Wandering filaments", feed: 0.046, kill: 0.063, du: 0.21, dv: 0.105, paletteId: "chlorophyll" },
-  { id: "scale", name: "Scale", blurb: "Morpho ridges", feed: 0.046, kill: 0.063, du: 0.21, dv: 0.105, paletteId: "morpho" },
-  { id: "coral", name: "Coral", blurb: "Branching reefs", feed: 0.0545, kill: 0.062, du: 0.21, dv: 0.105, paletteId: "abyss" },
-  { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.21, dv: 0.105, paletteId: "ember" },
+  { id: "living", name: "Living", blurb: "Fine mazes. The phone tunes them.", feed: 0.029, kill: 0.057, du: 1, dv: 0.5, paletteId: "abyss" },
+  { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 1, dv: 0.5, paletteId: "spore" },
+  { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.86, dv: 0.43, paletteId: "spore" },
+  { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 1, dv: 0.5, paletteId: "abyss" },
+  { id: "mazes", name: "Mazes", blurb: "Labyrinth walls", feed: 0.029, kill: 0.057, du: 1, dv: 0.5, paletteId: "porcelain" },
+  { id: "fingerprint", name: "Fingerprint", blurb: "Ridge fields", feed: 0.026, kill: 0.061, du: 1, dv: 0.5, paletteId: "porcelain" },
+  { id: "spirals", name: "Spirals", blurb: "Rotating arms", feed: 0.018, kill: 0.051, du: 1, dv: 0.5, paletteId: "ember" },
+  { id: "worms", name: "Worms", blurb: "Wandering filaments", feed: 0.046, kill: 0.063, du: 1, dv: 0.5, paletteId: "chlorophyll" },
+  { id: "scale", name: "Scale", blurb: "Morpho ridges", feed: 0.046, kill: 0.063, du: 1, dv: 0.5, paletteId: "morpho" },
+  { id: "coral", name: "Coral", blurb: "Branching reefs", feed: 0.0545, kill: 0.062, du: 1, dv: 0.5, paletteId: "abyss" },
+  { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 1, dv: 0.5, paletteId: "ember" },
 ];
 
 export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "living") ?? PRESETS[0]!;

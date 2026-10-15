@@ -347,12 +347,6 @@ export class RDEngine {
       data[o] = 255;
       data[o + 3] = 255;
     }
-    const spots: [number, number, number][] = [
-      [0.5, 0.52, 0.13],
-      [0.3, 0.66, 0.07],
-      [0.72, 0.36, 0.055],
-      [0.22, 0.28, 0.04],
-    ];
     const minSide = Math.min(w, h);
     const paint = (cx: number, cy: number, r: number, vAmt: number) => {
       const rad = r * minSide;
@@ -373,12 +367,15 @@ export class RDEngine {
         }
       }
     };
-    for (const [cx, cy, r] of spots) paint(cx, cy, r, 1);
-    for (let s = 0; s < 10; s++) {
-      paint(0.1 + Math.random() * 0.8, 0.1 + Math.random() * 0.8, 0.02 + Math.random() * 0.028, 1);
-    }
-    for (let s = 0; s < 36; s++) {
-      paint(0.06 + Math.random() * 0.88, 0.06 + Math.random() * 0.88, 0.007 + Math.random() * 0.012, 0.9);
+    const spacing = 22;
+    for (let y = spacing * 0.5; y < h; y += spacing) {
+      for (let x = spacing * 0.5; x < w; x += spacing) {
+        if (Math.random() < 0.18) continue;
+        const jx = (Math.random() - 0.5) * spacing * 0.9;
+        const jy = (Math.random() - 0.5) * spacing * 0.9;
+        const rPx = 3.6 + Math.random() * 3.2;
+        paint((x + jx) / w, (y + jy) / h, rPx / minSide, 0.86 + Math.random() * 0.14);
+      }
     }
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -588,10 +585,10 @@ export class RDEngine {
         const hRad = (heading * Math.PI) / 180;
         const north = 0.5 + 0.5 * Math.cos(hRad);
         const east = 0.5 + 0.5 * Math.sin(hRad);
-        const breathe = 0.82 + 0.28 * (0.5 + 0.5 * Math.sin(time * 0.23));
+        const breathe = 0.94 + 0.12 * (0.5 + 0.5 * Math.sin(time * 0.23));
         const stir = posed ? Math.min(1, sense.spin * 1.7 + Math.max(0, sense.gforce - 0.03) * 1.2) : 0;
-        const poseTarget = posed ? 0.48 + 0.9 * north + 0.28 * east : breathe;
-        this.smoothScale += (poseTarget - this.smoothScale) * 0.04;
+        const poseTarget = posed ? 0.82 + 0.28 * north + 0.08 * east : breathe;
+        if (step === 0) this.smoothScale += (poseTarget - this.smoothScale) * 0.18;
         const poseScale = this.smoothScale;
         const feed =
           params.feed +
@@ -601,17 +598,16 @@ export class RDEngine {
           params.kill -
           b.mid * heard * 0.012 +
           (posed ? -sense.roll * 0.01 + (east - 0.5) * 0.005 : 0);
-        const grain = posed ? 1 : Math.max(1, Math.min(1.7, Math.min(this.simW, this.simH) / 1100));
-        const du = params.du * (1 + b.high * heard * 0.4) * poseScale * grain;
-        const dv = params.dv * (1 - b.bass * heard * 0.22) * poseScale * grain;
+        const du = params.du * (1 + b.high * heard * 0.12) * poseScale;
+        const dv = params.dv * (1 - b.bass * heard * 0.1) * poseScale;
         const simDt = Math.max(
-          0.35,
-          Math.min(posed ? 1.85 : 2.1, params.speed * (posed ? 1.05 + stir * 0.35 : grain) * (1 + b.rms * heard * 0.7 + runtime.beat * 0.35)),
+          0.45,
+          Math.min(1, params.speed * (1 + stir * 0.06) * (1 + b.rms * heard * 0.1 + runtime.beat * 0.05)),
         );
         gl.uniform1f(u.uFeed, Math.max(0.01, Math.min(0.09, feed)));
         gl.uniform1f(u.uKill, Math.max(0.03, Math.min(0.08, kill)));
-        gl.uniform1f(u.uDu, Math.max(0.08, Math.min(0.36, du)));
-        gl.uniform1f(u.uDv, Math.max(0.04, Math.min(0.2, dv)));
+        gl.uniform1f(u.uDu, Math.max(0.2, Math.min(1.25, du)));
+        gl.uniform1f(u.uDv, Math.max(0.1, Math.min(0.65, dv)));
         gl.uniform1f(u.uDt, simDt);
         const ax = runtime.flowX * (posed ? 0.55 : 1) + (b.high - b.bass) * heard * 0.22 + (posed ? 0.0 : Math.sin(time * 0.37) * 0.1);
         const ay = runtime.flowY * (posed ? 0.55 : 1) + (b.centroid - 0.4) * heard * 0.16 + (posed ? 0.0 : Math.cos(time * 0.29) * 0.08);
@@ -770,7 +766,7 @@ export class RDEngine {
     gl.uniform1f(du.uVignette, params.vignette);
     gl.uniform1f(du.uFlash, this.flash);
     gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);
-    gl.uniform4f(du.uPlay, play.amp, play.pitch, play.timbre, 0);
+    gl.uniform4f(du.uPlay, play.amp, play.pitch, play.timbre, runtime.bass);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 

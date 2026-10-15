@@ -256,7 +256,7 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float fill = smoothstep(0.01, 0.46, v);
   float thread = clamp(fine * 10.0, 0.0, 1.0);
   float limb = clamp(coarse * 4.2, 0.0, 1.0);
-  float t = clamp(fill * 0.55 + thread * 0.4 + limb * 0.14, 0.0, 0.96);
+  float t = clamp(fill * 0.46 + thread * 0.3 + limb * 0.1, 0.0, 0.74);
   vec3 col = paletteStops(t, c0, c1, c2, c3);
   vec3 nrm = normalize(vec3(-(vE - vW) * (3.2 + glowAmt), (vN - vS) * (3.2 + glowAmt), 0.2));
   float ndl = max(0.0, dot(nrm, normalize(vec3(-0.35, 0.62, 0.7))));

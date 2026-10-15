@@ -12,6 +12,7 @@ import {
 import { glassToPlane, islandPeriod, nearestDegree, tableRot } from "./billiards";
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 import { configurePanner, glassToWorld, placePanner, poseInstrumentListener } from "./space";
+import { advanceGroove, bassRegister, createGroove, grooveHasNotes, type Groove, type GrooveNote } from "./groove";
 
 /**
  * Sounding contacts: local hands (touch/hover plays, M-06) plus any remote
@@ -167,6 +168,13 @@ type LoopVoice = {
   buffer: AudioBuffer;
 };
 
+type BassVoice = {
+  sub: OscillatorNode;
+  body: OscillatorNode;
+  filter: BiquadFilterNode;
+  env: GainNode;
+};
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -223,6 +231,9 @@ export class AudioEngine {
   private ctxHooked = false;
   private resumePromise: Promise<void> | null = null;
   private lastResumeAt = 0;
+  private bass: BassVoice | null = null;
+  private bassNote = 0;
+  private groove: Groove = createGroove();
 
   unlock() {
     if (this.ctx?.state === "closed") {
@@ -364,6 +375,35 @@ export class AudioEngine {
     this.noiseFilter.connect(this.noiseGain);
     this.noiseGain.connect(this.bus);
     this.noise.start();
+
+    const bassBus = ctx.createGain();
+    bassBus.gain.value = 1;
+    const sub = ctx.createOscillator();
+    sub.type = "sine";
+    sub.frequency.value = 73.42;
+    const body = ctx.createOscillator();
+    body.type = "sine";
+    body.frequency.value = 146.83;
+    const subG = ctx.createGain();
+    subG.gain.value = 0.85;
+    const bodyG = ctx.createGain();
+    bodyG.gain.value = 0.16;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 180;
+    filter.Q.value = 0.4;
+    const env = ctx.createGain();
+    env.gain.value = 0;
+    sub.connect(subG);
+    body.connect(bodyG);
+    subG.connect(filter);
+    bodyG.connect(filter);
+    filter.connect(env);
+    env.connect(bassBus);
+    bassBus.connect(this.compressor);
+    sub.start();
+    body.start();
+    this.bass = { sub, body, filter, env };
 
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 128;
@@ -974,6 +1014,125 @@ export class AudioEngine {
     ramp(v.mix.gain, Math.max(0.0001, Math.min(0.5, amp)), now, 0.07);
   }
 
+  private tuneBass(hz: number, now: number) {
+    const bass = this.bass;
+    if (!bass) return;
+    const f = bassRegister(hz);
+    ramp(bass.sub.frequency, f, now, 0.04);
+    ramp(bass.body.frequency, f * 2, now, 0.05);
+    ramp(bass.filter.frequency, 180, now, 0.08);
+  }
+
+  private pluckBass(hz: number, now: number, sustain = false) {
+    const bass = this.bass;
+    if (!bass) return;
+    this.tuneBass(hz, now);
+    const env = bass.env.gain;
+    env.cancelScheduledValues(now);
+    const peak = sustain ? 0.28 : 0.34;
+    const hold = sustain ? 0.12 : 0.0001;
+    env.setValueAtTime(Math.max(0.0001, env.value), now);
+    env.exponentialRampToValueAtTime(peak, now + 0.04);
+    env.exponentialRampToValueAtTime(Math.max(0.0001, hold), now + (sustain ? 0.28 : 0.5));
+    this.bassNote = bassRegister(hz);
+    this.groove.pulse = 0.55;
+  }
+
+  private releaseBass(now: number) {
+    if (!this.bass || this.bassNote === 0) return;
+    this.bassNote = 0;
+    const env = this.bass.env.gain;
+    env.cancelScheduledValues(now);
+    env.setValueAtTime(Math.max(0.0001, env.value), now);
+    env.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  }
+
+  private followBass(hz: number, now: number) {
+    const f = bassRegister(hz);
+    const changed = this.bassNote === 0 || Math.abs(Math.log(f / this.bassNote)) > 0.035;
+    if (changed) this.pluckBass(f, now, true);
+    else this.tuneBass(f, now);
+  }
+
+  private hzForNote(note: GrooveNote): number {
+    const key = keyById(runtime.keyId);
+    const mode = modeById(runtime.modeId);
+    return orbitHz(note.degree, note.y, 0, key.pc, mode.intervals, runtime.pitchMinHz, runtime.pitchMaxHz);
+  }
+
+  grooveView() {
+    const g = this.groove;
+    return {
+      playing: g.playing,
+      writing: g.writing,
+      lit: g.lit,
+      filled: g.steps.map((s) => (s ? "1" : "0")).join(""),
+    };
+  }
+
+  /** First press writes one bar. Second locks it. Third pauses. */
+  armGroove(): "record" | "play" | "stop" {
+    if (!this.ctx || this.ctx.state === "closed") this.unlock();
+    const g = this.groove;
+    const now = this.ctx?.currentTime ?? 0;
+    if (!g.playing) {
+      g.steps = g.steps.map(() => null);
+      g.playing = true;
+      g.writing = true;
+      g.index = 0;
+      g.lit = -1;
+      g.pass = 0;
+      g.nextAt = now;
+      return "record";
+    }
+    if (g.writing) {
+      g.writing = false;
+      return "play";
+    }
+    g.playing = false;
+    g.writing = false;
+    this.releaseBass(now);
+    return "stop";
+  }
+
+  /** Play or pause a bar that already has notes. */
+  toggleGroovePlay(): boolean {
+    if (!grooveHasNotes(this.groove)) return false;
+    if (!this.ctx || this.ctx.state === "closed") this.unlock();
+    const g = this.groove;
+    g.writing = false;
+    g.playing = !g.playing;
+    if (g.playing) {
+      g.index = 0;
+      g.lit = -1;
+      g.nextAt = this.ctx?.currentTime ?? 0;
+    } else {
+      this.releaseBass(this.ctx?.currentTime ?? 0);
+    }
+    return g.playing;
+  }
+
+  clearGroove() {
+    this.groove = createGroove();
+    if (this.ctx) this.releaseBass(this.ctx.currentTime);
+    runtime.bass = 0;
+  }
+
+  private driveGroove(now: number, finger: GrooveNote | null, leadHz: number) {
+    const g = this.groove;
+    if (!g.playing) {
+      if (leadHz > 20) this.followBass(leadHz, now);
+      else this.releaseBass(now);
+      advanceGroove(g, now, null);
+      runtime.bass = g.pulse;
+      return;
+    }
+    const was = advanceGroove(g, now, finger);
+    if (was.hopped && was.note) this.pluckBass(this.hzForNote(was.note), now, false);
+    else if (was.hopped) this.releaseBass(now);
+    runtime.bass = g.pulse;
+  }
+
   tick() {
     try {
       this.tickInner();
@@ -1049,6 +1208,13 @@ export class AudioEngine {
       if (!seen.has(id)) this.releaseLive(id);
     }
     this.voiceCount = this.live.size;
+    const leadBrush = ordered[0];
+    const leadVoice = leadBrush ? this.live.get(leadBrush.id) : undefined;
+    this.driveGroove(
+      now,
+      leadVoice && leadBrush ? { degree: leadVoice.degree, y: leadBrush.y } : null,
+      leadVoice ? this.lastHz : 0,
+    );
 
     const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 0;
     if (rate > 0.02 && this.frozen.length) {
@@ -1226,6 +1392,8 @@ export class AudioEngine {
       for (const p of this.hum) p.osc.stop();
       this.lfo?.stop();
       this.noise?.stop();
+      this.bass?.sub.stop();
+      this.bass?.body.stop();
     } catch {
       /* already stopped */
     }

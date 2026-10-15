@@ -448,7 +448,13 @@ export const useInstrument = create<InstrumentState>()(
           state.presetId === "living" &&
           Math.abs(p0.feed - 0.048) < 0.002 &&
           Math.abs(p0.kill - 0.0615) < 0.002;
-        if ((mitosisRest || coralRest || stranded || fernFromSpots || coarseLiving) && p0) {
+        const thinLiving =
+          !!p0 &&
+          state.presetId === "living" &&
+          Math.abs(p0.feed - 0.037) < 0.002 &&
+          Math.abs(p0.kill - 0.06) < 0.002 &&
+          p0.du < 0.75;
+        if ((mitosisRest || coralRest || stranded || fernFromSpots || coarseLiving || thinLiving) && p0) {
           const living = presetById("living");
           state.presetId = living.id;
           state.params = {
@@ -465,6 +471,14 @@ export const useInstrument = create<InstrumentState>()(
           runtime.seedNonce += 1;
         }
         resetRuntimeParams(state.params);
+        if (
+          state.waveform === "triangle" ||
+          state.waveform === "square" ||
+          state.waveform === "sawtooth" ||
+          state.waveform === "pulse"
+        ) {
+          state.waveform = DEFAULT_WAVEFORM;
+        }
         runtime.waveform = state.waveform;
         runtime.keyId = state.keyId;
         runtime.modeId = state.modeId;
@@ -472,7 +486,7 @@ export const useInstrument = create<InstrumentState>()(
         if (typeof state.pitchMaxHz === "number") runtime.pitchMaxHz = state.pitchMaxHz;
         if (typeof state.vibratoRate !== "number") state.vibratoRate = DEFAULT_VIBRATO_RATE;
         if (typeof state.vibratoDepth !== "number") state.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
-        if (typeof state.orbitRate !== "number" || Math.abs(state.orbitRate - 1.25) < 0.051) {
+        if (typeof state.orbitRate !== "number" || state.orbitRate > 0.05) {
           state.orbitRate = DEFAULT_ORBIT_RATE;
         }
         if (typeof state.listen !== "number") state.listen = DEFAULT_LISTEN;

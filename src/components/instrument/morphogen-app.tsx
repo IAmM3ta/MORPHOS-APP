@@ -7,6 +7,7 @@ import {
   House,
   Maximize2,
   Minimize2,
+  Monitor,
   Pause,
   Play,
   Repeat,
@@ -19,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { ControlDock } from "./control-dock";
 import { StartGate } from "./start-gate";
 import { ArOverlay } from "./ar-overlay";
-import { OrbitGlass } from "./orbit-glass";
 import { LivingField, MorphoMark, Wordmark } from "./wordmark";
 import { RDEngine } from "@/lib/morphogen/rd-engine";
 import { AudioEngine } from "@/lib/morphogen/audio-engine";
@@ -97,7 +97,6 @@ export function MorphogenApp() {
   const waveform = useInstrument((s) => s.waveform);
   const keyId = useInstrument((s) => s.keyId);
   const modeId = useInstrument((s) => s.modeId);
-  const orbitRate = useInstrument((s) => s.orbitRate);
   const applySnapshot = useInstrument((s) => s.applySnapshot);
 
   const [tab, setTab] = useState<TabId>("field");
@@ -128,6 +127,12 @@ export function MorphogenApp() {
   const [trackName, setTrackName] = useState("");
   const [trackOn, setTrackOn] = useState(false);
   const [webAr, setWebAr] = useState(false);
+  const [wall, setWall] = useState(false);
+  const [wallHint, setWallHint] = useState(false);
+  const [groove, setGroove] = useState<{ playing: boolean; writing: boolean; lit: number; filled: string } | null>(
+    null,
+  );
+  const grooveSig = useRef("");
   const factory = useInstrument(isFactoryInstrument);
   const atDefaults = factory && lockCount === 0 && loops.length === 0;
 
@@ -181,9 +186,12 @@ export function MorphogenApp() {
     restoreDefaults();
     clearAllLocks();
     audioRef.current?.clearLoops();
+    audioRef.current?.clearGroove();
     audioRef.current?.setWaveform(DEFAULT_WAVEFORM);
     setLoops([]);
     setLayerRecording(false);
+    setGroove(null);
+    grooveSig.current = "";
     if (engineRef.current) engineRef.current.flash = 0.85;
     toast("Default settings");
   }, [restoreDefaults, clearAllLocks]);
@@ -247,20 +255,13 @@ export function MorphogenApp() {
     }
   }, []);
 
-  const toggleLayer = useCallback(() => {
-    if (layerRecording) {
-      void audioRef.current?.stopLayerRecord().then((clip) => {
-        setLayerRecording(false);
-        if (clip) toast("Loop is ready");
-      });
+  const togglePlayback = useCallback(() => {
+    const view = audioRef.current?.grooveView();
+    if (view?.filled.includes("1")) {
+      const on = audioRef.current?.toggleGroovePlay() ?? false;
+      toast(on ? "Loop playing" : "Loop paused");
       return;
     }
-    const ok = audioRef.current?.startLayerRecord();
-    if (!ok) toast("Could not record a loop");
-    else setLayerRecording(true);
-  }, [layerRecording]);
-
-  const togglePlayback = useCallback(() => {
     const clips = audioRef.current?.getLoops() ?? loops;
     if (!clips.length) {
       toast("Record a loop first");
@@ -269,6 +270,17 @@ export function MorphogenApp() {
     const playing = clips.some((c) => c.playing);
     for (const c of clips) audioRef.current?.setLoopPlaying(c.id, !playing);
   }, [loops]);
+
+  const armBar = useCallback(() => {
+    const mode = audioRef.current?.armGroove();
+    if (!mode) {
+      toast("Enter the field first");
+      return;
+    }
+    if (mode === "record") toast("Play one bar. It locks itself.");
+    else if (mode === "play") toast("Loop locked");
+    else toast("Loop paused");
+  }, []);
 
   const captureField = useCallback(async () => {
     try {
@@ -448,6 +460,12 @@ export function MorphogenApp() {
       if (a) {
         setHz((h) => (Math.abs(h - a.lastHz) > 1.5 ? a.lastHz : h));
         setVoices(a.voiceCount);
+        const view = a.grooveView();
+        const sig = `${view.playing}|${view.writing}|${view.lit}|${view.filled}`;
+        if (sig !== grooveSig.current) {
+          grooveSig.current = sig;
+          setGroove(view);
+        }
       }
     };
     engine.start();
@@ -749,6 +767,52 @@ export function MorphogenApp() {
     if (!started) void enter();
   }, [webAr, started, enter, patch]);
 
+  useEffect(() => {
+    if (started) return;
+    if (!new URLSearchParams(window.location.search).has("wall")) return;
+    setWall(true);
+    void enter();
+  }, [started, enter]);
+
+  useEffect(() => {
+    if (!wall) return;
+    setWallHint(true);
+    const hide = window.setTimeout(() => setWallHint(false), 3600);
+    return () => window.clearTimeout(hide);
+  }, [wall]);
+
+  useEffect(() => {
+    if (!wall || !started) return;
+    patch({ uiHidden: true, panelOpen: false });
+    let released = false;
+    let sentinel: { release: () => Promise<void> } | null = null;
+    const ask = () => {
+      const nav = navigator as Navigator & {
+        wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> };
+      };
+      if (!nav.wakeLock || released) return;
+      void nav.wakeLock.request("screen").then(
+        (lock) => {
+          if (released) void lock.release();
+          else sentinel = lock;
+        },
+        () => {
+          /* wake lock is optional */
+        },
+      );
+    };
+    ask();
+    const onVis = () => {
+      if (document.visibilityState === "visible") ask();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      released = true;
+      document.removeEventListener("visibilitychange", onVis);
+      void sentinel?.release();
+    };
+  }, [wall, started, patch]);
+
   const onToggleMic = useCallback(
     async (on: boolean) => {
       patch({ micOn: on });
@@ -826,8 +890,15 @@ export function MorphogenApp() {
 
   const requestFs = useCallback(async () => {
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      const el = document.documentElement as HTMLElement & {
+        webkitRequestFullscreen?: () => Promise<void> | void;
+      };
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else el.webkitRequestFullscreen?.();
     } catch {
       toast("Fullscreen was blocked");
     }
@@ -858,9 +929,6 @@ export function MorphogenApp() {
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
         <canvas ref={canvasRef} className={cn("block h-full w-full touch-none", hunting && "opacity-0")} />
-        {started && !hunting && orbitRate > 0.05 && (
-          <OrbitGlass n={runtime.orbitN} rot={runtime.orbitRot} degrees={runtime.orbitDegrees} />
-        )}
         <video ref={videoRef} className="hidden" playsInline muted />
         {charge.v > 0.02 && (
           <div
@@ -917,6 +985,60 @@ export function MorphogenApp() {
           }}
           edition={edition}
         />
+      )}
+
+      {started && !hunting && groove && (groove.playing || groove.writing || groove.filled.includes("1")) && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-[max(4.5rem,env(safe-area-inset-bottom))] z-30 flex justify-center gap-1.5"
+          aria-hidden
+        >
+          {groove.filled.split("").map((bit, i) => (
+            <span
+              key={i}
+              className={cn(
+                "block size-1.5 rounded-full",
+                i === groove.lit ? "bg-fg" : bit === "1" ? "bg-fg/55" : "bg-fg/20",
+              )}
+            />
+          ))}
+        </div>
+      )}
+
+      {started && wall && wallHint && !hunting && (
+        <p className="pointer-events-none absolute top-1/3 left-1/2 z-30 w-64 -translate-x-1/2 text-center text-sm leading-relaxed text-muted">
+          Wallpaper. Tap the field to wake the sound. Leave brings the glass back.
+        </p>
+      )}
+
+      {started && wall && !hunting && (
+        <div className="pointer-events-auto fixed right-3 bottom-[max(0.85rem,env(safe-area-inset-bottom))] z-50 flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="bg-bg/40 shadow-[var(--shadow-border)] backdrop-blur-md"
+            onClick={() => {
+              if (recorderRef.current.recording) {
+                toggleRecord();
+                return;
+              }
+              toggleRecord();
+              window.setTimeout(() => {
+                if (recorderRef.current.recording) recorderRef.current.stop();
+              }, 8000);
+              toast("Saving an eight-second wallpaper clip");
+            }}
+          >
+            Clip
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="bg-bg/40 shadow-[var(--shadow-border)] backdrop-blur-md"
+            onClick={() => setWall(false)}
+          >
+            Leave
+          </Button>
+        </div>
       )}
 
       {started && recording && (
@@ -1033,7 +1155,17 @@ export function MorphogenApp() {
               {isFs ? <Minimize2 /> : <Maximize2 />}
             </Button>
           </div>
-          <div className="pointer-events-auto absolute top-hud-t right-3 z-40 sm:hidden">
+          <div className="pointer-events-auto absolute top-hud-t right-3 z-40 flex gap-1 sm:hidden">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="bg-bg/55 shadow-[var(--shadow-border)] backdrop-blur-md"
+              onClick={() => void requestFs()}
+              aria-label={isFs ? "Leave fullscreen" : "Fullscreen"}
+              title="Fullscreen"
+            >
+              {isFs ? <Minimize2 /> : <Maximize2 />}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -1165,10 +1297,10 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {started && uiHidden && !hunting && (
+      {started && uiHidden && !hunting && !wall && (
         <div
           data-ui
-          className="pointer-events-auto fixed top-hud-t left-1/2 z-50 flex -translate-x-1/2 items-end gap-0.5 rounded-full bg-bg-elevated px-1 py-1 text-fg shadow-[var(--shadow-border),0_12px_32px_rgba(0,0,0,0.55)]"
+          className="pointer-events-auto fixed top-hud-t left-1/2 z-50 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-end gap-0.5 overflow-x-auto rounded-full bg-bg-elevated px-1 py-1 text-fg shadow-[var(--shadow-border),0_12px_32px_rgba(0,0,0,0.55)]"
         >
           <button
             type="button"
@@ -1203,22 +1335,48 @@ export function MorphogenApp() {
           <button
             type="button"
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
-            onClick={toggleLayer}
-            aria-label={layerRecording ? "Stop loop" : "Record a loop"}
-            title={layerRecording ? "Stop loop" : "Record a loop"}
+            onClick={armBar}
+            aria-label={groove?.writing ? "Lock the bar" : groove?.playing ? "Pause the loop" : "Record an eight-step loop"}
+            title={groove?.writing ? "Lock the bar" : groove?.playing ? "Pause the loop" : "Record an eight-step bass bar"}
           >
-            <Repeat className={cn("size-4", layerRecording && "text-destructive")} />
-            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Loop</span>
+            <Repeat className={cn("size-4", (groove?.writing || layerRecording) && "text-destructive")} />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">
+              {groove?.writing ? "Done" : groove?.playing ? "Stop" : "Loop"}
+            </span>
           </button>
           <button
             type="button"
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
             onClick={togglePlayback}
-            aria-label={loops.some((c) => c.playing) ? "Pause loops" : "Play loops"}
-            title={loops.some((c) => c.playing) ? "Pause loops" : "Play loops"}
+            aria-label={groove?.playing || loops.some((c) => c.playing) ? "Pause" : "Play the loop"}
+            title={groove?.playing || loops.some((c) => c.playing) ? "Pause" : "Play the loop"}
           >
-            {loops.some((c) => c.playing) ? <Pause className="size-4" /> : <Play className="size-4" />}
+            {groove?.playing || loops.some((c) => c.playing) ? <Pause className="size-4" /> : <Play className="size-4" />}
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Play</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={() => void requestFs()}
+            aria-label={isFs ? "Leave fullscreen" : "Fullscreen"}
+            title={isFs ? "Leave fullscreen" : "Fullscreen"}
+          >
+            {isFs ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Full</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={() => {
+              setWall(true);
+              patch({ uiHidden: true, panelOpen: false });
+              void requestFs();
+            }}
+            aria-label="Wallpaper"
+            title="Clear the glass and hold the screen awake"
+          >
+            <Monitor className="size-4" />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Wall</span>
           </button>
         </div>
       )}

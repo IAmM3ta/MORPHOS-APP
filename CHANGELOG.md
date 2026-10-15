@@ -8,6 +8,11 @@
 - Guide-only Bentov credit; `docs/mui-bentov-spike.md` (Synesthesia audio contract, Shadertoy multipass, dual WGSL/GLSL post-clear)
 - `docs/GROK-APP-BUILDER-REPUBLISH.md` — step-by-step live publish (GitHub does not deploy morphos.grok.me)
 
+### Living maze and bass bar
+- Gray-Scott uses Du ≈ 1 and Dv ≈ 0.5 with a timestep at or below 1, so Living grows a dark cyan maze instead of hollow rings
+- A finger carries a soft electronic bass. Loop writes an eight-step bar that plays itself. Full and Wall sit on the glass
+- TanStack Start pinned to ~1.168.60
+
 ### Still draft
 - `morphos-v2` (PR #2) — WebGPU RD, looks, wallpaper — not merged
 
@@ -26,10 +31,15 @@ repository stays `IAmM3ta/morphogen`.
 The glass opens clear. A finger is a pitch. The way you hold the phone
 tunes the chemistry. The field stays dark.
 
+### Fixed
+
+- **The field was a scatter of hollow rings.** This Laplacian needs Du ≈ 1 and Dv ≈ 0.5; the old coefficients (and a timestep above 1) never connected. Living now grows a dark cyan maze, and a stored bubble chemistry is reseeded onto it.
+
 ### Added
 
 - **Snapshot.** `backup/54d449a-2026-10-05/` is a full archive of commit
   `54d449a` (MEMETiC glass on MORPHOS), kept so that build can be restored.
+- **Bass and a bar.** A finger carries a soft electronic bass. Loop writes eight steps, then the bar plays itself. Fullscreen sits on the glass. Wall clears the chrome, holds the screen awake, and can save an eight-second clip.
 - **Clear glass.** The menu is hidden until you ask for it. Along the top:
   View, Reset, Rec, Loop, and Play. View opens the full controls. Hide
   puts them away.

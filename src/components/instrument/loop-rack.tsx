@@ -33,7 +33,7 @@ export function LoopRack({
     <div>
       <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Layers</p>
       <p className="mb-3 text-xs leading-relaxed text-muted">
-        Record a layer of the live voice. It loops while you add another on top. Six deep.
+        Loop on the glass writes an eight-step bass bar in the key, then it plays itself. Layers here record the whole voice on top. Six deep.
       </p>
       <Button
         variant={recording ? "secondary" : "ghost"}

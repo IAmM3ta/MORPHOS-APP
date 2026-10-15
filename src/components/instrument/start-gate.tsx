@@ -53,7 +53,7 @@ export function StartGate({
         <p className="mt-4 text-xs tracking-wide text-faint">
           {edition
             ? "Camera opened MORPHOS. Add to Home Screen so the next sticker launches the app."
-            : "Enter unlocks audio. First tap voices the field."}
+            : "Enter unlocks audio. First tap voices the field. Loop writes one bar."}
         </p>
       </div>
     </div>

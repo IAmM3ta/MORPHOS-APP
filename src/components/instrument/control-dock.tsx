@@ -993,9 +993,9 @@ function FieldTab({
           label="Diffusion U"
           symbol="Dᵤ"
           value={params.du}
-          min={0.08}
-          max={0.36}
-          step={0.005}
+          min={0.2}
+          max={1.25}
+          step={0.01}
           format={fmt3}
           onChange={(n) => setParam("du", n)}
           onActive={(on) => {
@@ -1006,9 +1006,9 @@ function FieldTab({
           label="Diffusion V"
           symbol="Dᵥ"
           value={params.dv}
-          min={0.04}
-          max={0.2}
-          step={0.005}
+          min={0.1}
+          max={0.65}
+          step={0.01}
           format={fmt3}
           onChange={(n) => setParam("dv", n)}
           onActive={(on) => {

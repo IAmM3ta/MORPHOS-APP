@@ -92,6 +92,8 @@ export type Runtime = {
   /** When false, pose does not tune the chemistry. */
   gyroOn: boolean;
   play: { amp: number; pitch: number; timbre: number };
+  /** Bass-hit brightness, 0–1. The display shader reads this. */
+  bass: number;
 };
 
 export const DEFAULT_VIBRATO_RATE = 5.2;
@@ -141,6 +143,7 @@ export const runtime: Runtime = {
   beat: 0,
   gyroOn: true,
   play: { amp: 0, pitch: 0.5, timbre: 0.12 },
+  bass: 0,
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {
