@@ -26,7 +26,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 Where it stands, ahead of v0.1.0. The public name is **MORPHOS**, subtitle
 **Living Field**, at [morphos.grok.me](https://morphos.grok.me). The
-repository stays `IAmM3ta/morphogen`.
+repository is [`IAmM3ta/MORPHOS-APP`](https://github.com/IAmM3ta/MORPHOS-APP).
 
 The glass opens clear. A finger is a pitch. The way you hold the phone
 tunes the chemistry. The field stays dark.

@@ -2,7 +2,7 @@
 
 **Living Field.** A theremin made of chemistry. You play a Gray–Scott field with your fingers and with the way you hold the phone. The glass opens dark and clear. The first finger is a pitch. The phone tunes the pattern.
 
-Public instrument: **[morphos.grok.me](https://morphos.grok.me)** · repository: [`IAmM3ta/morphogen`](https://github.com/IAmM3ta/morphogen).
+Public instrument: **[morphos.grok.me](https://morphos.grok.me)** · repository: [`IAmM3ta/MORPHOS-APP`](https://github.com/IAmM3ta/MORPHOS-APP).
 
 **[Changelog](CHANGELOG.md)** · **[Instrument guide (PDF)](docs/Morphos-Instrument-Guide.pdf)** · **[HTML guide](docs/morphogen-guide.html)** · **[Grok builder republish](docs/GROK-APP-BUILDER-REPUBLISH.md)** · **[MUI / Bentov spike](docs/mui-bentov-spike.md)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)**
 
@@ -73,8 +73,8 @@ Species packs set chemistry without reseeding. Factory rest is **Living**.
 ## Run locally
 
 ```bash
-git clone https://github.com/IAmM3ta/morphogen.git
-cd morphogen
+git clone https://github.com/IAmM3ta/MORPHOS-APP.git
+cd MORPHOS-APP
 git checkout main
 npm install
 npm run dev

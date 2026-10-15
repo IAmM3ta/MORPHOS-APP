@@ -2,7 +2,7 @@
 
 **Why this exists:** `morphos.grok.me` is hosted by **Grok’s app builder**, not by GitHub Actions or Vercel auto-deploy. Merging to `main` does **not** update the live site. Metta (or whoever owns the builder project) must republish from the builder after each ship cut.
 
-**Repo of record:** [IAmM3ta/morphogen](https://github.com/IAmM3ta/morphogen) · branch `main`
+**Repo of record:** [IAmM3ta/MORPHOS-APP](https://github.com/IAmM3ta/MORPHOS-APP) · branch `main`
 
 ---
 
@@ -10,12 +10,12 @@
 
 1. Confirm `main` tip includes the cut you want:
    ```bash
-   gh api repos/IAmM3ta/morphogen/commits/main --jq '{sha:.sha,msg:.commit.message}'
+   gh api repos/IAmM3ta/MORPHOS-APP/commits/main --jq '{sha:.sha,msg:.commit.message}'
    ```
 2. For the **opaque dock (M-24)** cut, `main` must contain chrome label **`Stage · Sync`** (commit lineage includes `6b37d6c` or later).
 3. Build locally once so you know the tree is green:
    ```bash
-   git clone https://github.com/IAmM3ta/morphogen.git && cd morphogen
+   git clone https://github.com/IAmM3ta/MORPHOS-APP.git && cd MORPHOS-APP
    git checkout main && git pull
    npm install && npx tsc --noEmit && npm run build
    ```
@@ -28,7 +28,7 @@
 Exact UI labels in the Grok builder can move; follow the intent of each step.
 
 1. Open the Grok app that owns **morphos.grok.me** (same project that last published Morphos).
-2. Sync or import source from GitHub **`IAmM3ta/morphogen`**, branch **`main`**, at the SHA you verified above.  
+2. Sync or import source from GitHub **`IAmM3ta/MORPHOS-APP`**, branch **`main`**, at the SHA you verified above.  
    - If the builder has a “Sync from GitHub / Update from repo” control, use that.  
    - If it only accepts pasted files or a zip: `git archive --format=zip HEAD -o morphogen-main.zip` from a clean `main` checkout and upload.
 3. Confirm the builder’s working tree shows:
